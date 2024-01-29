@@ -1,0 +1,29 @@
+<!--The 'step_code' value from the .js file should be used-->
+<li id="step_code" data-bind="fadeVisible: isVisible">
+    <div class="step-title" data-bind="i18n: 'Choose dealer'" data-role="title"></div>
+    <form data-bind="submit: navigateToNextStep" novalidate="novalidate"> 
+        <!-- ko if: window.checkoutConfig.dealer -->
+         <div class="session-dealer-selection">
+            <p><!-- ko i18n: 'Are you an ELMAG dealer?'--><!-- /ko --></p>
+            <span class="logein-link"><a data-bind ="attr: { href: getBaseUrl() }"><!-- ko i18n: 'Then please login here!'--><!-- /ko --></a></span>
+                <div class="session-dealer-static">
+                    <p><!-- ko i18n: 'As a wholesale company ELMAG handles all supplies together with dealers in your area. Your selected dealer is'--><!-- /ko -->
+                        &nbsp;<span class="company" data-bind="text: window.checkoutConfig.company "></span>.&nbsp;<!-- ko i18n: 'Your dealer selection is only for our internal use. The delivery and invoicing is done directly by ELMAG.'--><!-- /ko --> </p>
+                </div>
+        </div>
+        <!-- /ko -->
+        <!-- ko ifnot: window.checkoutConfig.dealer -->
+         <div data-bind="html: window.checkoutConfig.cms_block_message"></div>
+         <!-- /ko -->
+            <div class="actions-toolbar">
+                <div class="primary">
+                    <button data-role="opc-continue" type="submit" class="button action continue primary custom-click-check">
+                        <span><!-- ko i18n: 'Next'--><!-- /ko --></span>
+                    </button>
+                </div>
+            </div>
+    </form>
+    
+</li>
+
+ 

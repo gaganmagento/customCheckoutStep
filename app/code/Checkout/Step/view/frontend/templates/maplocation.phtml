@@ -1,0 +1,287 @@
+<html>
+  <head>
+    <style>
+ #map {
+        width: 100%;
+        height: 800px;
+        background: gray;
+     }
+     #error-message{
+      color: red;
+     }
+     .hidemapcustom {
+      display: none;
+     }
+     ._complete {
+          pointer-events: none;
+      }
+    </style>
+    <script async 
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA0rIIgqZmKn2LhTpRNQgij_K2wVRcBzTA&libraries=places&callback=initMap">
+    </script>
+  </head>
+  <body>
+
+     <div id="checkout-step-title"
+         class="step-content"
+         data-role="content">
+         <p><a href="<?php echo $this->getUrl('customer/account/login');?>"><?php echo __('Are you an ELMAG dealer? Then please login here!'); ?></a></p>
+         <div class="choose-dealer-static">
+            <p class="choose-delaer-title"><?php echo __('Choose your dealer'); ?></p>
+            <p class="choose-delaer-content">
+                <?php echo __('As a wholesale company ELMAG handles all supplies together with dealers in your area. Please select your desired dealer. If no selection is made, ELMAG will set an appropriate dealer. I agree that the order data will be transmitted to the selected specialist dealer. Due to organizational reasons this is necessary for order processing. Delivery and invoicing will be carried out directly by ELMAG.'); ?>
+            </p>
+         </div>
+         <div class="dealer-part">
+     <div class="search-section-dealer">
+        <div class="dealer-lcation-label"><label><?php echo __('Location:'); ?></label>
+                 <input type="text" name="dealer-location" id="dealer-location" data-bind="validationElement: address" /></div>
+                 <div class="dealer-distance-label"><label><?php echo __('Distance (km):'); ?></label>
+                 <select name="dealer-loc-distance" id="dealer-loc-distance">
+                    <option value="10">10</option>
+                    <option value="25">20</option>
+                    <option value="30">30</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                </div>
+                <div class="dealer-company-label"> 
+                <label> <?php echo __('Search by company name:'); ?></label> 
+               <input type="text" name="dealer-company" id="dealer-company" />
+             </div>
+
+    </div>
+         <div class="search-dealer-button primary action" id="search-dealer-button">
+             <span><?php echo __('Search'); ?></span>
+        </div>
+      </div>
+  </div>
+        <div class="error-message"></div>
+       
+    <div class="dealer-dropdown-select">
+      <div class="dealer-drop-head">
+        <p><?php echo __('After search select your preferred dealer:'); ?></p>
+        <select name="select-dealer-drop" id="select-dealer-drop">
+          <option value="default-choice"><?php echo __('Please select a dealer for me.'); ?></option>
+        </select>
+        <div class="dealer-drop-static">
+          <p><?php echo '<span class="dealer-star">*</span>'.__('ELMAG Premium partners have a particularly extensive program of ELMAG-quality products and have the most popular products on site in stock. Moreover, they qualify by partcularly high quality advice.'); ?></p>
+        </div>
+      </div>
+    </div>
+    <div id="map"></div>
+    <?php
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $storeManager  = $objectManager->get('\Magento\Store\Model\StoreManagerInterface');
+        $baseUrl       =$storeManager->getStore()->getBaseUrl();
+     ?>
+    <script type="text/javascript">
+      require(["jquery"],function($) {
+    		 let map;
+         let marker;
+         let markers = [];
+         let circle;
+         let markerArr=[];
+         let markersArray = [];
+         let text;
+         var prev_infowindow =false;
+        
+        function initMap() {
+          const myLatLng = { lat: 48.21927421895204, lng: 13.499098488082836 };
+          const map = new google.maps.Map(document.getElementById("map"), {
+            zoom: 7,
+            center: myLatLng,
+          });
+        const input = document.getElementById("dealer-location");
+        const options = {fields: [ "geometry", "name"]};
+        const autocomplete = new google.maps.places.Autocomplete(input, options);
+        autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (!place.geometry || !place.geometry.location) {
+                // User entered the name of a Place that was not suggested and
+                // pressed the Enter key, or the Place Details request failed.
+                window.alert("No details available for input: '" + place.name + "'");
+                return;
+            }
+            addressLocation = place.geometry['location'];
+        });
+        if(document.getElementById('dealer-location').value == undefined || document.getElementById('dealer-location').value === '' || document.getElementById('dealer-company').value == undefined || document.getElementById('dealer-company').value === '')
+    {
+        if(navigator.geolocation){
+            navigator.geolocation.getCurrentPosition(function(posit) {
+
+                var latlng = new google.maps.LatLng(posit.coords.latitude, posit.coords.longitude);
+                // This is making the Geocode request
+                var geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ 'latLng': latlng },  (results, status) =>{
+                    if (status !== google.maps.GeocoderStatus.OK) {
+                        alert(status);
+                    }
+                    // This is checking to see if the Geoeode Status is OK before proceeding
+                    if (status == google.maps.GeocoderStatus.OK) {
+                        var address = (results[0].formatted_address);
+                        document.getElementById('dealer-location').value = address;
+                    }
+                });
+            }, function (e){
+                console.log(e.message);
+            });
+        }
+    }
+         document.getElementById('search-dealer-button').addEventListener("click", function() {
+            var loc = document.getElementById('dealer-location').value;
+            var dis = document.getElementById('dealer-loc-distance').value;
+            var comp = document.getElementById('dealer-company').value;
+            var customurl = "<?php echo $this->getUrl().'map/index/index'?>";
+             $.ajax({
+                url: customurl,
+                type: 'POST',
+                showLoader: true,
+                dataType: 'json',
+                data: {
+                    location: loc,
+                    distance: dis,
+                    company:comp,
+                },
+                success : function(result) {
+                    jQuery('#select-dealer-drop option:not(:first)').remove();
+                    for (var i = 0; i < markerArr.length; i++) {
+                        markerArr[i].setMap(null);
+                    }
+                    for (var i = 0; i < markersArray.length; i++) {
+                        markersArray[i].setMap(null);
+                    }
+                    markerArr = [];
+                    markersArray = [];
+                    if(document.getElementById('dealer-company').value == undefined || document.getElementById('dealer-company').value == ''){
+                    if(result.lat != undefined){
+                      var result1 = _.omit(result,['lat','lng']);
+                            marker = new google.maps.Marker({
+                            position: { lat: Number(result.lat), lng: Number(result.lng) },
+                            map: map,
+                            icon: 'https://maps.google.com/mapfiles/ms/icons/arrow.png'
+                        });
+                        markersArray.push(marker);
+                        let inputSelectDistance = document.getElementById('dealer-loc-distance');
+                        let distanceInKm = inputSelectDistance.value;
+                        let radius = distanceInKm * 1000;
+                        circle = new google.maps.Circle({
+                            strokeColor: "#000000",
+                            strokeOpacity: 0.8,
+                            strokeWeight: 2,
+                            fillColor: "#FF0000",
+                            fillOpacity: 0.35,
+                            map,
+                            center: { lat: Number(result.lat), lng: Number(result.lng) },
+                            radius: radius
+                        })
+                        map.fitBounds(circle.getBounds());
+                        }
+                    }
+                    if(result.lat == undefined){
+                        if(circle != undefined){
+                            circle.setMap(null);
+                        }
+                        if(marker != undefined){
+                            marker.setMap(null);
+                        }
+                    }
+                    Object.values(result).forEach((vendor,i) => {
+                       var infoText = "";
+                      if(vendor['premium'] === "11")
+                          infoText += '<p className="mb-0 fw-bold" style="color: #A40042">This dealer is an ELMAG premium partner</p>';
+                          infoText += "<b>"+ vendor['name'] +"</b></br>"
+                          + vendor['street'] + "</br>" +
+                          + vendor['postal_code'] +" " + vendor['city'] + "</br>";
+                      if(vendor['website'])
+                          infoText += "<a href='" +vendor['website'] + "' target='_blank' > "+ vendor['website']  +" </a> </br>";
+                      if(vendor['email'])
+                          infoText += "<a href='mailto:" +vendor['email'] + "' target='_blank' > "+ vendor['email']  +" </a> </br>";
+                      if(vendor['phone'])
+                          infoText += vendor['phone'] + "</br>";
+                      if(vendor['fax'])
+                          infoText += vendor['fax'] + "</br>";
+
+                      const infoWindow = new google.maps.InfoWindow({
+                          content: infoText,
+                      });
+                      var premiumurl = "<?php echo $this->getUrl().'pub/media/CustomIcons/red_stars.png'; ?>"
+                      var redUrl = "<?php echo $this->getUrl().'pub/media/CustomIcons/red.png'; ?>"
+                      if(vendor.premium == '11'){
+                        marker = new google.maps.Marker({
+                          position: { lat: Number(vendor.lat), lng: Number(vendor.lng) },
+                          map: map,
+                          icon: premiumurl
+                      });
+                      }else{
+                        marker = new google.maps.Marker({
+                          position: { lat: Number(vendor.lat), lng: Number(vendor.lng) },
+                          map: map,
+                          icon: redUrl
+                        });
+                      }
+                      var data = marker[i];
+                       (function (marker, data) {
+                          google.maps.event.addListener(marker, "click", function (e) {
+                               map.setCenter(marker.getPosition());
+                            if(prev_infowindow){
+                                        prev_infowindow.close();
+                                }
+                                prev_infowindow = infoWindow;
+                              infoWindow.open(map, marker);
+                              document.getElementById('select-dealer-drop').value = i+"_"+vendor.id; 
+                          });
+                      })(marker, data);
+                      if(vendor.premium === "11"){
+                       text = "** ELMAG Premium Partner **";
+                      }else{
+                        text ='';
+                      }
+                      let dealer = `${vendor.company} ${vendor.postal_code} ${vendor.city} ${text}`;
+                     if(vendor.id != undefined){
+                       var drop = document.getElementById("select-dealer-drop");
+                        var option = document.createElement("option");
+                            option.text = dealer;
+                            option.value = i+"_"+vendor.id;
+                        drop.add(option);
+                        markerArr.push(marker);
+                    }
+                        document.getElementById('select-dealer-drop').addEventListener('change', function(e) {
+                          var vlue = document.getElementById('select-dealer-drop').value;
+                          Object.values(markerArr).forEach((value,j)=>{
+                            if(j+"_"+vendor.id==vlue){
+                           (function (marker) {
+                               map.setZoom(15);
+                               map.setCenter(marker.getPosition());
+                               if(prev_infowindow){
+                                        prev_infowindow.close();
+                                }
+                                prev_infowindow = infoWindow;
+                              infoWindow.open(map, marker);
+                            })(value);
+                          }
+                          })
+                        });
+                    });
+                },
+               error : function(err) {
+                     console.log("Error : "+JSON.stringify(err));
+               }
+             }); 
+          });
+        }
+        window.initMap = initMap;
+         jQuery('.search-dealer-button').click(function(){
+            var value1 = jQuery('#dealer-company').val();
+            if(value1 == null || value1 == ''){
+                var value = jQuery('#dealer-location').val();
+                 if(value == null || value == ''){
+                  alert('You have Not Added any location');
+                  return;
+                }
+            }  
+          });
+      });
+    </script>
+  </body>
+</html>
